@@ -81,9 +81,20 @@ class AuditRunner:
         self.config = config
         self.timeout = httpx.Timeout(timeout_seconds)
         self.user_agent = user_agent
+        self._owns_client = client is None
         self.client = client or httpx.Client(headers={"User-Agent": self.user_agent})
         self.robots_policy = robots_policy or RobotsPolicy(self.client, self.timeout)
         self.rate_limiter = RateLimiter(min_interval_seconds=self._min_cadence())
+
+    def close(self) -> None:
+        if self._owns_client:
+            self.client.close()
+
+    def __enter__(self) -> AuditRunner:
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
 
     def _min_cadence(self) -> float:
         if not self.config.sources:
