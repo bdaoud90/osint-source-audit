@@ -1,0 +1,47 @@
+[project]
+name = "osint-source-audit"
+version = "0.1.0"
+description = "CLI tool to audit public OSINT data sources and produce structured reports."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "OSINT Source Audit Contributors" }]
+keywords = ["osint", "security", "audit", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+  "httpx>=0.27.0",
+  "pydantic>=2.7.0",
+  "PyYAML>=6.0.1",
+  "rich>=13.7.1",
+  "typer>=0.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+  "ruff>=0.5.0",
+]
+
+[project.scripts]
+osint-source-audit = "osint_source_audit.cli:app"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
