@@ -1,0 +1,12 @@
+sources:
+  - name: Example JSON Source
+    url: https://example.com/api/sample.json
+    expected_fields:
+      - id
+      - name
+      - updated_at
+    cadence_seconds: 1.5
+  - name: Public Status Page
+    url: https://status.example.com/api/status
+    expected_fields: []
+    cadence_seconds: 2.0
