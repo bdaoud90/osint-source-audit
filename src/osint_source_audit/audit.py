@@ -58,14 +58,14 @@ class RobotsPolicy:
             if response.status_code >= 400:
                 self._errors[base_url] = f"robots.txt returned {response.status_code}"
                 parser.parse([])
-                if response.status_code == 404:
-                    parser.allow_all()
+                parser.allow_all()
                 return parser
             parser.parse(response.text.splitlines())
             return parser
         except httpx.HTTPError as exc:
             self._errors[base_url] = f"robots.txt fetch failed: {exc}"
             parser.parse([])
+            parser.allow_all()
             return parser
 
 
