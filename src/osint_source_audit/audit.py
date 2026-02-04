@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
@@ -13,22 +12,6 @@ import httpx
 
 from .config import AuditConfig, SourceConfig
 from .models import AuditReport, AuditSummary, SourceAuditResult
-
-
-@dataclass
-class RateLimiter:
-    min_interval_seconds: float
-    _last_request_time: float | None = None
-
-    def wait(self) -> None:
-        if self._last_request_time is None:
-            self._last_request_time = time.monotonic()
-            return
-        elapsed = time.monotonic() - self._last_request_time
-        if elapsed < self.min_interval_seconds:
-            time.sleep(self.min_interval_seconds - elapsed)
-        self._last_request_time = time.monotonic()
-
 
 class RobotsPolicy:
     def __init__(self, client: httpx.Client, timeout: httpx.Timeout) -> None:
@@ -84,7 +67,7 @@ class AuditRunner:
         self._owns_client = client is None
         self.client = client or httpx.Client(headers={"User-Agent": self.user_agent})
         self.robots_policy = robots_policy or RobotsPolicy(self.client, self.timeout)
-        self.rate_limiter = RateLimiter(min_interval_seconds=self._min_cadence())
+        self._last_request_times: dict[str, float] = {}
 
     def close(self) -> None:
         if self._owns_client:
@@ -96,18 +79,22 @@ class AuditRunner:
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
 
-    def _min_cadence(self) -> float:
-        if not self.config.sources:
-            return 0.0
-        return min(source.cadence_seconds for source in self.config.sources)
+    def _wait_for_source(self, source: SourceConfig) -> None:
+        last_request_time = self._last_request_times.get(source.name)
+        if last_request_time is None:
+            self._last_request_times[source.name] = time.monotonic()
+            return
+        elapsed = time.monotonic() - last_request_time
+        if elapsed < source.cadence_seconds:
+            time.sleep(source.cadence_seconds - elapsed)
+        self._last_request_times[source.name] = time.monotonic()
 
     def run(self) -> AuditReport:
         results: list[SourceAuditResult] = []
         notes: list[str] = []
 
         for source in self.config.sources:
-            self.rate_limiter.min_interval_seconds = source.cadence_seconds
-            self.rate_limiter.wait()
+            self._wait_for_source(source)
             result = self._audit_source(source)
             robots_error = self.robots_policy.get_error(str(source.url))
             if robots_error:
