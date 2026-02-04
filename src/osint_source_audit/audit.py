@@ -95,6 +95,16 @@ class AuditRunner:
             notes=notes,
         )
 
+    def close(self) -> None:
+        if self._owns_client:
+            self.client.close()
+
+    def __enter__(self) -> AuditRunner:
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
+
     def _wait_for_source(self, source: SourceConfig) -> None:
         cadence = source.cadence_seconds
         if cadence <= 0:
