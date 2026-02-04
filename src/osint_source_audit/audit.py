@@ -13,6 +13,7 @@ import httpx
 from .config import AuditConfig, SourceConfig
 from .models import AuditReport, AuditSummary, SourceAuditResult
 
+
 class RobotsPolicy:
     def __init__(self, client: httpx.Client, timeout: httpx.Timeout) -> None:
         self._client = client
@@ -41,14 +42,14 @@ class RobotsPolicy:
             if response.status_code >= 400:
                 self._errors[base_url] = f"robots.txt returned {response.status_code}"
                 parser.parse([])
-                if response.status_code == 404:
-                    parser.allow_all()
+                parser.allow_all()
                 return parser
             parser.parse(response.text.splitlines())
             return parser
         except httpx.HTTPError as exc:
             self._errors[base_url] = f"robots.txt fetch failed: {exc}"
             parser.parse([])
+            parser.allow_all()
             return parser
 
 
@@ -68,26 +69,6 @@ class AuditRunner:
         self.client = client or httpx.Client(headers={"User-Agent": self.user_agent})
         self.robots_policy = robots_policy or RobotsPolicy(self.client, self.timeout)
         self._last_request_times: dict[str, float] = {}
-
-    def close(self) -> None:
-        if self._owns_client:
-            self.client.close()
-
-    def __enter__(self) -> AuditRunner:
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        self.close()
-
-    def _wait_for_source(self, source: SourceConfig) -> None:
-        last_request_time = self._last_request_times.get(source.name)
-        if last_request_time is None:
-            self._last_request_times[source.name] = time.monotonic()
-            return
-        elapsed = time.monotonic() - last_request_time
-        if elapsed < source.cadence_seconds:
-            time.sleep(source.cadence_seconds - elapsed)
-        self._last_request_times[source.name] = time.monotonic()
 
     def run(self) -> AuditReport:
         results: list[SourceAuditResult] = []
@@ -113,6 +94,20 @@ class AuditRunner:
             results=results,
             notes=notes,
         )
+
+    def _wait_for_source(self, source: SourceConfig) -> None:
+        cadence = source.cadence_seconds
+        if cadence <= 0:
+            return
+        source_key = str(source.url)
+        now = time.monotonic()
+        last_request_time = self._last_request_times.get(source_key)
+        if last_request_time is not None:
+            elapsed = now - last_request_time
+            if elapsed < cadence:
+                time.sleep(cadence - elapsed)
+                now = time.monotonic()
+        self._last_request_times[source_key] = now
 
     def _audit_source(self, source: SourceConfig) -> SourceAuditResult:
         url = str(source.url)
