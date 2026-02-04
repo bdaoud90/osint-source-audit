@@ -33,8 +33,11 @@ def audit(
         timeout_seconds=timeout,
         user_agent=user_agent or "osint-source-audit",
     )
-    report = runner.run()
-    json_path, md_path = write_report(report, output_dir)
+    try:
+        report = runner.run()
+        json_path, md_path = write_report(report, output_dir)
+    finally:
+        runner.close()
 
     table = Table(title="Audit Summary")
     table.add_column("Metric")

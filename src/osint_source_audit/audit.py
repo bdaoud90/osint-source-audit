@@ -65,6 +65,7 @@ class AuditRunner:
         self.config = config
         self.timeout = httpx.Timeout(timeout_seconds)
         self.user_agent = user_agent
+        self._owns_client = client is None
         self.client = client or httpx.Client(headers={"User-Agent": self.user_agent})
         self.robots_policy = robots_policy or RobotsPolicy(self.client, self.timeout)
         self._last_request_times: dict[str, float] = {}
